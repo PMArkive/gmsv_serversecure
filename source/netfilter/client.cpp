@@ -1,35 +1,37 @@
 #include "client.hpp"
 #include "clientmanager.hpp"
-#include "main.hpp"
+#include "debug.hpp"
 
 namespace netfilter
 {
-	Client::Client( ClientManager &_manager, uint32_t _address ) :
-		manager( _manager ), address( _address ), last_reset( 0 ), count( 0 )
+	Client::Client( ClientManager &manager, const uint32_t address ) :
+		m_manager( manager ), m_address( address ), m_last_ping( 0 ), m_last_reset( 0 ), m_count( 0 ), m_marked_for_removal( false )
 	{ }
 
-	Client::Client( ClientManager &_manager, uint32_t _address, uint32_t time ) :
-		manager( _manager ), address( _address ), last_reset( time ), count( 1 )
+	Client::Client( ClientManager &manager, const uint32_t address, const uint32_t time ) :
+		m_manager( manager ), m_address( address ), m_last_ping( time ), m_last_reset( time ), m_count( 1 ), m_marked_for_removal( false )
 	{ }
 
-	bool Client::CheckIPRate( uint32_t time )
+	bool Client::CheckIPRate( const uint32_t time )
 	{
-		if( time - last_reset >= manager.GetMaxQueriesWindow( ) )
+		m_last_ping = time;
+
+		if( time - m_last_reset >= m_manager.GetMaxQueriesWindow( ) )
 		{
-			last_reset = time;
-			count = 1;
+			m_last_reset = time;
+			m_count = 1;
 		}
 		else
 		{
-			++count;
-			if( count / manager.GetMaxQueriesWindow( ) >= manager.GetMaxQueriesPerSecond( ) )
+			++m_count;
+			if( m_count >= m_manager.GetMaxQueriesPerSecond( ) * m_manager.GetMaxQueriesWindow( ) )
 			{
 				_DebugWarning(
 					"[ServerSecure] %d.%d.%d.% reached its query limit!\n",
-					( address >> 24 ) & 0xFF,
-					( address >> 16 ) & 0xFF,
-					( address >> 8 ) & 0xFF,
-					address & 0xFF
+					( m_address >> 24 ) & 0xFF,
+					( m_address >> 16 ) & 0xFF,
+					( m_address >> 8 ) & 0xFF,
+					m_address & 0xFF
 				);
 				return false;
 			}
@@ -40,11 +42,26 @@ namespace netfilter
 
 	uint32_t Client::GetAddress( ) const
 	{
-		return address;
+		return m_address;
 	}
 
-	bool Client::TimedOut( uint32_t time ) const
+	uint32_t Client::GetLastPing( ) const
 	{
-		return time - last_reset >= ClientManager::ClientTimeout;
+		return m_last_ping;
+	}
+
+	bool Client::TimedOut( const uint32_t time ) const
+	{
+		return time - m_last_reset >= ClientManager::MaxQueriesWindow * 2;
+	}
+
+	void Client::MarkForRemoval( )
+	{
+		m_marked_for_removal = true;
+	}
+
+	bool Client::MarkedForRemoval( ) const
+	{
+		return m_marked_for_removal;
 	}
 }

@@ -1,10 +1,12 @@
 #include "core.hpp"
 #include "clientmanager.hpp"
 #include "main.hpp"
+#include "debug.hpp"
 
 #include <GarrysMod/Lua/Interface.h>
 #include <GarrysMod/InterfacePointers.hpp>
 #include <GarrysMod/FunctionPointers.hpp>
+#include <GarrysMod/FactoryLoader.hpp>
 #include <Platform.hpp>
 
 #include <detouring/hook.hpp>
@@ -23,6 +25,9 @@
 #include <cstring>
 #include <queue>
 #include <string>
+#include <unordered_set>
+#include <atomic>
+#include <vector>
 
 #if defined SYSTEM_WINDOWS
 
@@ -33,13 +38,10 @@
 #include <WinSock2.h>
 #include <Ws2tcpip.h>
 
-#include <unordered_set>
-#include <atomic>
-
 typedef int32_t ssize_t;
 typedef int32_t recvlen_t;
 
-#elif defined SYSTEM_LINUX
+#elif defined SYSTEM_LINUX || defined SYSTEM_MACOSX
 
 #define SERVERSECURE_CALLING_CONVENTION
 
@@ -48,27 +50,6 @@ typedef int32_t recvlen_t;
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <errno.h>
-
-#include <unordered_set>
-#include <atomic>
-
-typedef int32_t SOCKET;
-typedef size_t recvlen_t;
-
-static const SOCKET INVALID_SOCKET = -1;
-
-#elif defined SYSTEM_MACOSX
-
-#define SERVERSECURE_CALLING_CONVENTION
-
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-#include <errno.h>
-
-#include <unordered_set>
-#include <atomic>
 
 typedef int32_t SOCKET;
 typedef size_t recvlen_t;
@@ -210,7 +191,7 @@ namespace netfilter
 
 	inline const char *IPToString( const in_addr &addr )
 	{
-		static char buffer[16] = { };
+		static char buffer[INET_ADDRSTRLEN] = { };
 		const char *str =
 			inet_ntop( AF_INET, const_cast<in_addr *>( &addr ), buffer, sizeof( buffer ) );
 		if( str == nullptr )
@@ -428,9 +409,14 @@ namespace netfilter
 	inline PacketType HandleInfoQuery( const sockaddr_in &from )
 	{
 		const uint32_t time = static_cast<uint32_t>( Plat_FloatTime( ) );
-		if( !client_manager.CheckIPRate( from.sin_addr.s_addr, time ) )
+		const auto rate_limit = client_manager.CheckIPRate( from.sin_addr.s_addr, time );
+		if( rate_limit != ClientManager::RateLimitType::None )
 		{
-			_DebugWarning( "[ServerSecure] Client %s hit rate limit\n", IPToString( from.sin_addr ) );
+			_DebugWarning(
+				"[ServerSecure] Client %s hit %s rate limit\n",
+				IPToString( from.sin_addr ),
+				rate_limit == ClientManager::RateLimitType::Individual ? "individual" : "global"
+			);
 			return PacketType::Invalid;
 		}
 

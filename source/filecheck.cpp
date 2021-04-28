@@ -1,5 +1,6 @@
 #include "filecheck.hpp"
 #include "main.hpp"
+#include "debug.hpp"
 
 #include <GarrysMod/Lua/Interface.h>
 #include <GarrysMod/Lua/Helpers.hpp>
