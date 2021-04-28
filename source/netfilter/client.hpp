@@ -9,18 +9,24 @@ namespace netfilter
 	class Client
 	{
 	public:
-		Client( ClientManager &manager, uint32_t address );
-		Client( ClientManager &manager, uint32_t address, uint32_t time );
+		Client( ClientManager &manager, const uint32_t address );
+		Client( ClientManager &manager, const uint32_t address, const uint32_t time );
 
-		bool CheckIPRate( uint32_t time );
+		bool CheckIPRate( const uint32_t time );
 
 		uint32_t GetAddress( ) const;
-		bool TimedOut( uint32_t time ) const;
+		uint32_t GetLastPing( ) const;
+		bool TimedOut( const uint32_t time ) const;
+
+		void MarkForRemoval( );
+		bool MarkedForRemoval( ) const;
 
 	private:
-		ClientManager &manager;
-		uint32_t address;
-		uint32_t last_reset;
-		uint32_t count;
+		ClientManager &m_manager;
+		uint32_t m_address;
+		uint32_t m_last_ping;
+		uint32_t m_last_reset;
+		uint32_t m_count;
+		bool m_marked_for_removal;
 	};
 }
