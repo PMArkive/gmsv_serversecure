@@ -2,6 +2,7 @@
 #include "netfilter/core.hpp"
 #include "filecheck.hpp"
 
+#include <GarrysMod/FactoryLoader.hpp>
 #include <GarrysMod/Lua/Interface.h>
 #include <GarrysMod/InterfacePointers.hpp>
 #include <Platform.hpp>
